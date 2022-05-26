@@ -126,8 +126,8 @@ model.encoder.load_state_dict(checkpoint['encoder'])   # 分别取出
 model.decoder1.load_state_dict(checkpoint['decoder1'])
 model.decoder2.load_state_dict(checkpoint['decoder2'])
 results = testing(model,test_loader)  # (20)
-print(results)
-print(len(results))
+# print(results)
+# print(len(results))
 
 windows_labels=[]
 for i in range(len(labels)-window_size):  # （12252-12）
@@ -149,7 +149,7 @@ cutoff = int(0.999 * len(scores))
 threshold = scores[cutoff]
 print(threshold)
 '''
-threshold = 0.308 # Decide on your own threshold
+threshold = 0.512 # Decide on your own threshold
 y_pred_label = [1.0 if (score > threshold) else 0 for score in y_pred]
 prec=precision_score(y_test,y_pred_label,pos_label=1)
 recall=recall_score(y_test,y_pred_label,pos_label=1)

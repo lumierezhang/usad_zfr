@@ -52,7 +52,7 @@ print(windows_normal.shape)
 windows_attack=attack.values[np.arange(window_size)[None, :] + np.arange(attack.shape[0]-window_size)[:, None]]   # （449907=449919-12，12*51）
 print(windows_attack.shape)
 
-BATCH_SIZE = 7919
+BATCH_SIZE = 612
 N_EPOCHS = 1
 hidden_size = 100
 
@@ -92,7 +92,7 @@ model.encoder.load_state_dict(checkpoint['encoder'])   # 分别取出
 model.decoder1.load_state_dict(checkpoint['decoder1'])
 model.decoder2.load_state_dict(checkpoint['decoder2'])
 results = testing(model,test_loader)  # (20)
-print(results,'number of results ')
+# print(results,'number of results ')
 
 windows_labels=[]
 for i in range(len(labels)-window_size):  # （12252-12）
@@ -102,23 +102,24 @@ y_test = [1.0 if (np.sum(window) > 0) else 0 for window in windows_labels ]  # (
 
 y_pred = np.concatenate([torch.stack(results[:-1]).flatten().detach().cpu().numpy(),  
                               results[-1].flatten().detach().cpu().numpy()])
-print(y_pred,'number of y_pred')
-print(len(y_pred))
+# print(y_pred,'number of y_pred')
+# print(len(y_pred))
 
 
 threshold = ROC(y_test, y_pred)  # true,score
-
-plt.plot(y_test, '-r', label="y_test")
-plt.plot(y_pred, '-b', label="y_pred")
-plt.xlabel('NO.')
-plt.ylabel('value')
-plt.legend(loc='upper right')  # 显示label内容
-plt.title('value vs. No. ')
-plt.grid()  # 显示网格
-plt.show()
+# print(threshold)
+#
+# plt.plot(y_test, '-r', label="y_test")
+# plt.plot(y_pred, '-b', label="y_pred")
+# plt.xlabel('NO.')
+# plt.ylabel('value')
+# plt.legend(loc='upper right')  # 显示label内容
+# plt.title('value vs. No. ')
+# plt.grid()  # 显示网格
+# plt.show()
 
 #新加
-threshold=0.512 # Decide on your own threshold
+threshold=0.3727214 # Decide on your own threshold
 y_pred_label = [1.0 if (score > threshold) else 0 for score in y_pred ]
 prec=precision_score(y_test,y_pred_label,pos_label=1)
 recall=recall_score(y_test,y_pred_label,pos_label=1)

@@ -8,14 +8,15 @@ import statistics
 import torch.utils.data as data_utils
 
 from utils import *
-from usad import *
+from part_convs1_ea import *
 from sklearn import preprocessing, metrics
 from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
 
 #Read data
-normal = pd.read_csv("input/SWaT_Dataset_Normal_v1.csv")  # normal中存储每一行数据，每一行为一个向量
-normal = normal.drop(["Timestamp" , "Normal/Attack"], axis = 1)  # 丢弃第一列和最后一列的标签 axis=1，
-normal = pd.DataFrame(np.array(normal)[:489612])
+normal = pd.read_csv("input/part-000_train.csv")  # normal中存储每一行数据，每一行为一个向量
+normal = normal.drop(["host", "process", "timestamp", "isAnomaly" ] , axis = 1)  # 丢弃第一列和最后一列的标签 axis=1，
+normal = pd.DataFrame(np.array(normal)[:53868])
+# normal = pd.DataFrame(np.array(normal)[:6132])
 print(normal.shape)  # （495000行，51列 ）
 #
 # #Downsampling
@@ -34,11 +35,19 @@ normal = pd.DataFrame(x_scaled)  # （495000，51） 设置idex  normal=x_scaled
 print(normal.head(2))
 
 #Read data
-attack = pd.read_csv("input/SWaT_Dataset_Attack_v0.csv",sep=";")
-labels = [ float(label!= 'Normal' ) for label  in attack["Normal/Attack"].values]
-labels = labels[:440652]
-attack = attack.drop(["Timestamp", "Normal/Attack" ], axis=1)
-attack = pd.DataFrame(np.array(attack)[:440652])
+attack = pd.read_csv("input/part-009_test.csv")
+labels = []
+for item in attack["isAnomaly"].values:
+    if item == False:
+        item = 0.0
+        labels.append(float(item))
+    else:
+        item = 1.0
+        labels.append(float(item))
+
+labels = pd.DataFrame(np.array(labels)[:49584])
+attack = attack.drop(["host" , "process","timestamp","isAnomaly"], axis=1)
+attack = pd.DataFrame(np.array(attack)[:49584])
 print(attack.shape)
 
 # #Downsampling the attack data
@@ -79,21 +88,19 @@ print(windows_normal.shape)
 windows_attack=attack.values[np.arange(window_size)[None, :] + np.arange(attack.shape[0]-window_size)[:, None]]   # 数组 float64（449907=449919-12，12*51）
 print(windows_attack.shape)
 
-print(windows_normal.dtype,'W-N')
-print(windows_attack.dtype,'W-a')
+
 
 BATCH_SIZE = 612
-N_EPOCHS = 1
+N_EPOCHS = 70
 hidden_size = 100
 
-w_size = windows_normal.shape[1]*windows_normal.shape[2] # 12*51
+w_size = windows_normal.shape[1]*windows_normal.shape[2] # 2772
 z_size = windows_normal.shape[1]*hidden_size  # 1200
 
 
 windows_normal_train = windows_normal[:int(np.floor(.8 *  windows_normal.shape[0]))]  # （9792，12*51） 数组 float64
-print(windows_normal_train.dtype,'W-N-T')
 windows_normal_val = windows_normal[int(np.floor(.8 *  windows_normal.shape[0])):int(np.floor(windows_normal.shape[0]))]  # float64（2448，12*51）数组
-print(windows_normal_val.dtype,'W-N-V')
+
 
 train_loader = torch.utils.data.DataLoader(data_utils.TensorDataset(
     torch.from_numpy(windows_normal_train).float().view(([windows_normal_train.shape[0], 1, w_size]))
@@ -126,14 +133,15 @@ model.encoder.load_state_dict(checkpoint['encoder'])   # 分别取出
 model.decoder1.load_state_dict(checkpoint['decoder1'])
 model.decoder2.load_state_dict(checkpoint['decoder2'])
 results = testing(model,test_loader)  # (20)
-print(results)
-print(len(results))
+# print(results)
+# print(len(results))
 
 windows_labels=[]
 for i in range(len(labels)-window_size):  # （12252-12）
     windows_labels.append(list(np.int_(labels[i:i+window_size])))  # （449907）
 
 y_test = [1.0 if (np.sum(window) > 0) else 0 for window in windows_labels ]  # (12240,1)
+# print(len(y_test))
 
 # y_pred = np.concatenate([torch.stack(results[:-1]).flatten().detach().cpu().numpy(),
 #                               results[-1].flatten().detach().cpu().numpy()])
@@ -141,7 +149,7 @@ y_test = [1.0 if (np.sum(window) > 0) else 0 for window in windows_labels ]  # (
 y_pred = results
 
 threshold1 = ROC(y_test, y_pred)  # true,score
-threshold = 0.315 # Decide on your own threshold
+threshold = 0.196 # Decide on your own threshold
 y_pred_label = [1.0 if (score > threshold) else 0 for score in y_pred]
 prec=precision_score(y_test,y_pred_label,pos_label=1)
 recall=recall_score(y_test,y_pred_label,pos_label=1)

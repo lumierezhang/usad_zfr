@@ -8,14 +8,17 @@ import statistics
 import torch.utils.data as data_utils
 
 from utils import *
-from usad_o_EA import *
+from part_o1 import *
 from sklearn import preprocessing, metrics
 from sklearn.metrics import precision_score, recall_score, f1_score, classification_report
 
 
 #Read data
-normal = pd.read_csv("input/SWaT_Dataset_Normal_v1.csv")  # normal中存储每一行数据，每一行为一个向量
-normal = normal.drop(["Timestamp" , "Normal/Attack" ] , axis = 1)  # 丢弃第一列和最后一列的标签 axis=1，
+normal = pd.read_csv("input/gafgyt_danmini_doorbell_train.csv")  # normal中存储每一行数据，每一行为一个向量
+# normal = normal.drop(["host" , "process","timestamp","isAnomaly" ] , axis = 1)  # 丢弃第一列和最后一列的标签 axis=1，
+normal = normal.drop(["target" ] , axis = 1)
+# normal = pd.DataFrame(np.array(normal)[:53868])
+normal = pd.DataFrame(np.array(normal)[:33672])
 print(normal.shape)  # （495000行，51列 ）
 
 # Transform all columns into float64
@@ -30,9 +33,22 @@ normal = pd.DataFrame(x_scaled)  # （495000，51） 设置idex  normal=x_scaled
 print(normal.head(2))
 
 #Read data
-attack = pd.read_csv("input/SWaT_Dataset_Attack_v0.csv",sep=";")
-labels = [ float(label!= 'Normal' ) for label  in attack["Normal/Attack"].values]
-attack = attack.drop(["Timestamp", "Normal/Attack" ], axis=1)
+attack = pd.read_csv("input/gafgyt_danmini_doorbell_test.csv")
+# labels = [ float(label!= 'TRUE' ) for label  in attack["isAnomaly"].values]
+labels = []
+for item in attack["target"].values:
+    if item == 0:
+        item = 0.0
+        labels.append(float(item))
+    else:
+        item = 1.0
+        labels.append(float(item))
+
+# labels = pd.DataFrame(np.array(labels)[:49584])
+labels = pd.DataFrame(np.array(labels)[:15312])
+# attack = attack.drop(["host" , "process","timestamp","isAnomaly"], axis=1)
+attack = attack.drop(["target"], axis=1)
+attack = pd.DataFrame(np.array(attack)[:15312])
 print(attack.shape)
 
 # Transform all columns into float64
@@ -52,7 +68,7 @@ print(windows_normal.shape)
 windows_attack=attack.values[np.arange(window_size)[None, :] + np.arange(attack.shape[0]-window_size)[:, None]]   # （449907=449919-12，12*51）
 print(windows_attack.shape)
 
-BATCH_SIZE = 7919
+BATCH_SIZE = 612
 N_EPOCHS = 1
 hidden_size = 100
 
@@ -60,7 +76,8 @@ w_size = windows_normal.shape[1]*windows_normal.shape[2] # 12*51
 z_size = windows_normal.shape[1]*hidden_size  # 1200
 
 
-windows_normal_train = windows_normal[:int(np.floor(.8 *  windows_normal.shape[0]))]  # （9792，12*51）
+windows_normal_train = windows_normal[:int(np.floor(.8 *  windows_normal.shape[0]))]  # （43084 12 231）
+print(windows_normal_train.shape)
 windows_normal_val = windows_normal[int(np.floor(.8 *  windows_normal.shape[0])):int(np.floor(windows_normal.shape[0]))]  # （2448，12*51）
 
 train_loader = torch.utils.data.DataLoader(data_utils.TensorDataset(
@@ -92,43 +109,34 @@ model.encoder.load_state_dict(checkpoint['encoder'])   # 分别取出
 model.decoder1.load_state_dict(checkpoint['decoder1'])
 model.decoder2.load_state_dict(checkpoint['decoder2'])
 results = testing(model,test_loader)  # (20)
-print(results,'number of results ')
+# print(results,'number of results ')
 
 windows_labels=[]
 for i in range(len(labels)-window_size):  # （12252-12）
     windows_labels.append(list(np.int_(labels[i:i+window_size])))  # （449907）
 
-y_test = [1.0 if (np.sum(window) > 0) else 0 for window in windows_labels ] # (12240,1)
+y_test = [1.0 if (np.sum(window) > 0) else 0 for window in windows_labels ]  # (12240,1)
 
 y_pred = np.concatenate([torch.stack(results[:-1]).flatten().detach().cpu().numpy(),
                               results[-1].flatten().detach().cpu().numpy()])
-print(y_pred,'number of y_pred')
+# print(y_pred,'number of y_pred')
+# print(len(y_pred))
 
 
-threshold = ROC(y_test, y_pred)  # true,score
+# threshold = ROC(y_test, y_pred)  # true,score
+#
+# plt.plot(y_test, '-r', label="y_test")
+# plt.plot(y_pred, '-b', label="y_pred")
+# plt.xlabel('NO.')
+# plt.ylabel('value')
+# plt.legend(loc='upper right')  # 显示label内容
+# plt.title('value vs. No. ')
+# plt.grid()  # 显示网格
+# plt.show()
+
 #新加
-plt.plot(y_test, '-r', label="y_test")
-plt.plot(y_pred, '-b', label="y_pred")
-plt.xlabel('epochs')
-plt.ylabel('value')
-plt.legend(loc='upper right')  # 显示label内容
-plt.title('EA_value vs. No. of epochs')
-plt.grid()  # 显示网格
-plt.show()
-
-threshold1=0.565 # Decide on your own threshold
-y_pred_label = [1.0 if (score > threshold1) else 0 for score in y_pred]
-
-
-plt.plot(labels, '-c', label="y_test")
-# plt.plot(y_pred_label, '-y', label="y_pred")
-plt.xlabel('NO.')
-plt.ylabel('labels')
-plt.legend(loc='upper right')  # 显示label内容
-plt.title('labels vs. No. ')
-plt.grid()  # 显示网格
-plt.show()
-
+threshold=0.755 # Decide on your own threshold
+y_pred_label = [1.0 if (score > threshold) else 0 for score in y_pred ]
 prec=precision_score(y_test,y_pred_label,pos_label=1)
 recall=recall_score(y_test,y_pred_label,pos_label=1)
 f1=f1_score(y_test,y_pred_label,pos_label=1)

@@ -1,57 +1,21 @@
 import torch
 import torch.nn as nn
-from torch.nn import init
 
 from utils import *
 
 device = get_default_device()
 
 
-class ExternalAttention(nn.Module):
-
-    def __init__(self, d_model, S):
-        super().__init__()
-        self.mk = nn.Linear(d_model, S, bias=False)
-        self.mv = nn.Linear(S, d_model, bias=False)
-        self.softmax = nn.Softmax(dim=1)  # 是每一行和为1
-        self.init_weights()
-
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight, mode='fan_out')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                init.normal_(m.weight, std=0.001)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-
-    def forward(self, queries):
-        print('enter EA')
-        attn = self.mk(queries)  # bs,n,S   (612,1,12)
-        # print(attn.size(),'attn1 size')
-        attn = self.softmax(attn)  # bs,n,S ()
-        attn = attn / torch.sum(attn, dim=1, keepdim=True)  # bs,n,S
-        out = self.mv(attn)  # bs,n,d_model
-
-        return out
-
 class Encoder(nn.Module):
     def __init__(self, in_size, latent_size):  # (612,1200)
         super().__init__()
-        self.EA = ExternalAttention(d_model=612, S=12)
         self.linear1 = nn.Linear(in_size, int(in_size / 2))  # (612,306.0)
         self.linear2 = nn.Linear(int(in_size / 2), int(in_size / 4))  # (306.0,153.0)
         self.linear3 = nn.Linear(int(in_size / 4), latent_size)
         self.relu = nn.ReLU(True)
 
     def forward(self, w):
-        out = self.EA(w)  #
-        out = self.linear1(out)  # (7919,306)
+        out = self.linear1(w)  # (7919,306)
         out = self.relu(out)
         out = self.linear2(out)  # (7919,153)
         out = self.relu(out)
@@ -110,9 +74,9 @@ class UsadModel(nn.Module):
 
     def validation_epoch_end(self, outputs):
         batch_losses1 = [x['val_loss1'] for x in outputs]
-        print(batch_losses1)
+        # print(batch_losses1)
         epoch_loss1 = torch.stack(batch_losses1).mean()
-        print(epoch_loss1)
+        # print(epoch_loss1)
         batch_losses2 = [x['val_loss2'] for x in outputs]
         epoch_loss2 = torch.stack(batch_losses2).mean()
         return {'val_loss1': epoch_loss1.item(), 'val_loss2': epoch_loss2.item()}
@@ -124,6 +88,8 @@ class UsadModel(nn.Module):
 
 def evaluate(model, val_loader,n):
     outputs = [model.validation_step(to_device(batch, device),n) for [batch] in val_loader]
+    # print(type(outputs))
+    # print(outputs)
     return model.validation_epoch_end(outputs)
 
 

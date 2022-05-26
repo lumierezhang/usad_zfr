@@ -74,9 +74,9 @@ class UsadModel(nn.Module):
 
     def validation_epoch_end(self, outputs):
         batch_losses1 = [x['val_loss1'] for x in outputs]
-        print(batch_losses1)
+        # print(batch_losses1)
         epoch_loss1 = torch.stack(batch_losses1).mean()
-        print(epoch_loss1)
+        # print(epoch_loss1)
         batch_losses2 = [x['val_loss2'] for x in outputs]
         epoch_loss2 = torch.stack(batch_losses2).mean()
         return {'val_loss1': epoch_loss1.item(), 'val_loss2': epoch_loss2.item()}
@@ -88,8 +88,8 @@ class UsadModel(nn.Module):
 
 def evaluate(model, val_loader,n):
     outputs = [model.validation_step(to_device(batch, device),n) for [batch] in val_loader]
-    print(type(outputs))
-    print(outputs)
+    # print(type(outputs))
+    # print(outputs)
     return model.validation_epoch_end(outputs)
 
 
@@ -98,7 +98,7 @@ def training(epochs, model, train_loader, val_loader, opt_func=torch.optim.Adam)
     optimizer1 = opt_func(list(model.encoder.parameters()) + list(model.decoder1.parameters()))
     optimizer2 = opt_func(list(model.encoder.parameters()) + list(model.decoder2.parameters()))
     for epoch in range(epochs):
-        for [batch] in train_loader:  # （7919，612）
+        for [batch] in train_loader:  # （612,12,231）
             batch = to_device(batch, device)
 
             # Train AE1
